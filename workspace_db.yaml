@@ -1,0 +1,16 @@
+- abs_path: /home/cst/ws_one
+  current: false
+  name: one
+  state: false
+- abs_path: /home/cst/ws_two
+  current: false
+  name: two
+  state: true
+- abs_path: /home/cst/three
+  current: false
+  name: three
+  state: false
+- abs_path: /home/cst/four_ws
+  current: true
+  name: four
+  state: true
