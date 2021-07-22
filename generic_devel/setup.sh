@@ -40,6 +40,23 @@ export PATH
 export PKG_CONFIG_PATH
 export PYTHONPATH
 
+# source all environment hooks
+_i=0
+while [ $_i -lt $_CATKIN_ENVIRONMENT_HOOKS_COUNT ]; do
+  eval _envfile=\$_CATKIN_ENVIRONMENT_HOOKS_$_i
+  unset _CATKIN_ENVIRONMENT_HOOKS_$_i
+  eval _envfile_workspace=\$_CATKIN_ENVIRONMENT_HOOKS_${_i}_WORKSPACE
+  unset _CATKIN_ENVIRONMENT_HOOKS_${_i}_WORKSPACE
+  # set workspace for environment hook
+  CATKIN_ENV_HOOK_WORKSPACE=$_envfile_workspace
+  . "$_envfile"
+  unset CATKIN_ENV_HOOK_WORKSPACE
+  _i=$((_i + 1))
+done
+unset _i
+
+unset _CATKIN_ENVIRONMENT_HOOKS_COUNT
+
 # remember type of shell if not already set
 if [ -z "$CATKIN_SHELL" ]; then
   CATKIN_SHELL=sh
@@ -78,20 +95,4 @@ unset _SETUP_UTIL
 rm -f "$_SETUP_TMP"
 unset _SETUP_TMP
 
-# source all environment hooks
-_i=0
-while [ $_i -lt $_CATKIN_ENVIRONMENT_HOOKS_COUNT ]; do
-  eval _envfile=\$_CATKIN_ENVIRONMENT_HOOKS_$_i
-  unset _CATKIN_ENVIRONMENT_HOOKS_$_i
-  eval _envfile_workspace=\$_CATKIN_ENVIRONMENT_HOOKS_${_i}_WORKSPACE
-  unset _CATKIN_ENVIRONMENT_HOOKS_${_i}_WORKSPACE
-  # set workspace for environment hook
-  CATKIN_ENV_HOOK_WORKSPACE=$_envfile_workspace
-  . "$_envfile"
-  unset CATKIN_ENV_HOOK_WORKSPACE
-  _i=$((_i + 1))
-done
-unset _i
-
-unset _CATKIN_ENVIRONMENT_HOOKS_COUNT
 
