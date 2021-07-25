@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Software License Agreement (BSD License)
-#
+# 
 # Copyright (c) 2012, Willow Garage, Inc.
 # All rights reserved.
 #
@@ -37,7 +37,6 @@
 
 from __future__ import print_function
 
-import argparse
 import copy
 import errno
 import os
@@ -54,7 +53,7 @@ PATH_TO_ADD_SUFFIX = ['bin']
 if IS_WINDOWS:
     # while catkin recommends putting dll's into bin, 3rd party packages often put dll's into lib
     # since Windows finds dll's via the PATH variable, prepend it with path to lib
-    PATH_TO_ADD_SUFFIX.extend([['lib', os.path.join('lib', 'x86_64-linux-gnu')]])
+    PATH_TO_ADD_SUFFIX.extend([['lib', os.path.join('lib', 'x86_64-linux-gnu')]])  # type: ignore
 
 # subfolder of workspace prepended to CMAKE_PREFIX_PATH
 ENV_VAR_SUBFOLDERS = {
@@ -251,27 +250,10 @@ def find_env_hooks(environ, cmake_prefix_path):
     return lines
 
 
-def _parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Generates code blocks for the setup.SHELL script.')
-    parser.add_argument('--extend', action='store_true', help='Skip unsetting previous environment variables to extend context')
-    parser.add_argument('--local', action='store_true', help='Only consider this prefix path and ignore other prefix path in the environment')
-    return parser.parse_known_args(args=args)[0]
-
-
 if __name__ == '__main__':
     try:
-        try:
-            args = _parse_arguments()
-        except Exception as e:
-            print(e, file=sys.stderr)
-            sys.exit(1)
-
-        if not args.local:
-            # environment at generation time
-            CMAKE_PREFIX_PATH = r'/home/cst/ws_one/devel;/home/cst/ws_two/devel;/home/cst/ws_three/devel;/opt/ros/melodic'.split(';')
-        else:
-            # don't consider any other prefix path than this one
-            CMAKE_PREFIX_PATH = []
+        # environment at generation time
+        CMAKE_PREFIX_PATH = r'/home/cst/ws_one/devel;/home/cst/ws_two/devel;/home/cst/ws_three/devel;/opt/ros/melodic'.split(';')
         # prepend current workspace if not already part of CPP
         base_path = os.path.dirname(__file__)
         # CMAKE_PREFIX_PATH uses forward slash on all platforms, but __file__ is platform dependent
@@ -285,8 +267,6 @@ if __name__ == '__main__':
 
         environ = dict(os.environ)
         lines = []
-        if not args.extend:
-            lines += rollback_env_variables(environ, ENV_VAR_SUBFOLDERS)
         lines += prepend_env_variables(environ, ENV_VAR_SUBFOLDERS, CMAKE_PREFIX_PATH)
         lines += find_env_hooks(environ, CMAKE_PREFIX_PATH)
         print('\n'.join(lines))
