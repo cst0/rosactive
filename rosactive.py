@@ -16,9 +16,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+
+
 import argparse
 import sys
-from os import mkdir, environ
+from os import mkdir, environ, walk, sep
 from os.path import exists, join, expanduser
 
 
@@ -33,10 +35,10 @@ def init_file_structure():
     )
     if "ROS_DISTRO" in environ.keys():
         print(
-                "ERROR: You appear to have some ROS content still sourced "
-                "in your shell configuration. Please only use rosactive in "
-                "an environment where no ROS content has been sourced (so "
-                "that rosactive can do all the management)"
+            "ERROR: You appear to have some ROS content still sourced "
+            "in your shell configuration. Please only use rosactive in "
+            "an environment where no ROS content has been sourced (so "
+            "that rosactive can do all the management)."
         )
         sys.exit()
 
@@ -48,7 +50,47 @@ def init_file_structure():
     open(join(expanduser("~"), ".rosactive/settings.yaml"), "w+").write("")
     print("Done!")
 
-    print("Going to ")
+    print("Going to search for indexable workspaces in your home directory.")
+    homedir = expanduser("~")
+    maxdepth = 5 + homedir.count(
+        sep
+    )  # max depth of 5 dir's into user directory to find CMakeLists
+    potential_workspaces = []
+
+    # walk through all directories in the user's home directory (up to maxdepth)
+    for root, _, files in walk(homedir):
+        if root.count(sep) < maxdepth:
+            for f in files:
+                # ignore hidden directories
+                if root.find(str(sep) + ".") > 0:
+                    continue
+                # found src/CMakeLists.txt: this could be a ROS workspace worth indexing.
+                if f == "CMakeLists.txt" and root.endswith("src"):
+                    potential_workspaces.append((root, f))
+
+    # now that we have some candidates, we can check if they're actual workspaces and not something else:
+    workspaces = []
+    for ws in potential_workspaces:
+        root, f = ws
+        f = open(join(root, f), "r")
+        # cmakelists.txt in a catkin workspace will end with 'catkin_workspace()', so we can search for that:
+        if "catkin_workspace" in f.read():
+            # cool, found one-- but we're in foo/bar/src/CMakeLists, we want to be tracking foo/bar.
+            spl = root.split(sep)
+            nosrc = sep.join(spl[:-1])
+            workspaces.append(nosrc)
+
+    print(
+        "Indexing ROS workspaces. No files will be touched (all indexing takes place in ~/.rosactive)"
+    )
+    for ws in workspaces:
+        print(" - " + str(ws))
+        index(ws)
+    print("Initial setup all done! You can now create project configurations.")
+
+
+def index(string: str):
+    pass
 
 
 def main():
