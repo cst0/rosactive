@@ -20,12 +20,41 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import sys
-from os import mkdir, environ, walk, sep
+from os import mkdir, environ, walk, sep, remove
 from os.path import exists, join, expanduser
+
+ROSACTIVE_DIR = ".rosactive"
+SETTINGS_FILE = "settings.yaml"
+INDEX_FILE = "index.yaml"
 
 
 def check_for_firsttime():
-    return not exists(join(expanduser("~"), ".rosactive/settings.yaml"))
+    return not check_for_settings()
+
+
+def get_settings_path():
+    return join(expanduser("~"), ROSACTIVE_DIR, SETTINGS_FILE)
+
+
+def get_index_path():
+    return join(expanduser("~"), ROSACTIVE_DIR, SETTINGS_FILE)
+
+
+def check_for_settings():
+    return exists(get_settings_path())
+
+
+def check_for_index():
+    return exists(get_index_path())
+
+
+def create_files():
+    if check_for_settings():
+        remove(get_settings_path())
+    if check_for_index():
+        remove(get_index_path())
+    open(get_settings_path(), "w+").write("")
+    open(get_index_path(), "w+").write("")
 
 
 def init_file_structure():
@@ -46,15 +75,14 @@ def init_file_structure():
     # create dir if it does not already exist
     if not exists(join(expanduser("~"), ".rosactive")):
         mkdir(join(expanduser("~"), ".rosactive"))
-    # create file if it does not already exist
-    open(join(expanduser("~"), ".rosactive/settings.yaml"), "w+").write("")
+    # create settings, index file if it does not already exist (also clear contents)
+    create_files()
     print("Done!")
 
     print("Going to search for indexable workspaces in your home directory.")
     homedir = expanduser("~")
-    maxdepth = 5 + homedir.count(
-        sep
-    )  # max depth of 5 dir's into user directory to find CMakeLists
+    # max depth of 5 dir's into user directory to find CMakeLists
+    maxdepth = 5 + homedir.count(sep)
     potential_workspaces = []
 
     # walk through all directories in the user's home directory (up to maxdepth)
@@ -81,7 +109,8 @@ def init_file_structure():
             workspaces.append(nosrc)
 
     print(
-        "Indexing ROS workspaces. No files will be touched (all indexing takes place in ~/.rosactive)"
+        "Indexing ROS workspaces."
+        "No files will be touched (all indexing takes place in ~/.rosactive)"
     )
     for ws in workspaces:
         print(" - " + str(ws))
@@ -90,7 +119,8 @@ def init_file_structure():
 
 
 def index(string: str):
-    pass
+    with open(join(expanduser("~"), ROSACTIVE_DIR, INDEX_FILE), "a") as f:
+        f.write(string + "\n")
 
 
 def main():
