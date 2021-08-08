@@ -1,8 +1,12 @@
 #!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 
+# Modified from the _setup_util.py by Chris Thierauf in 2021. Originally held
+# under copyright by Willow Garage, Inc, 2012, and released under the BSD
+# license. In keeping with that licensing, this file retains the
+# previously-listed copyright and licensing information below.
+
 # Software License Agreement (BSD License)
-# 
 # Copyright (c) 2012, Willow Garage, Inc.
 # All rights reserved.
 #
@@ -63,74 +67,6 @@ ENV_VAR_SUBFOLDERS = {
     'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig'), os.path.join('lib', 'x86_64-linux-gnu', 'pkgconfig')],
     'PYTHONPATH': 'lib/python3/dist-packages',
 }
-
-
-def rollback_env_variables(environ, env_var_subfolders):
-    """
-    Generate shell code to reset environment variables.
-
-    by unrolling modifications based on all workspaces in CMAKE_PREFIX_PATH.
-    This does not cover modifications performed by environment hooks.
-    """
-    lines = []
-    unmodified_environ = copy.copy(environ)
-    for key in sorted(env_var_subfolders.keys()):
-        subfolders = env_var_subfolders[key]
-        if not isinstance(subfolders, list):
-            subfolders = [subfolders]
-        value = _rollback_env_variable(unmodified_environ, key, subfolders)
-        if value is not None:
-            environ[key] = value
-            lines.append(assignment(key, value))
-    if lines:
-        lines.insert(0, comment('reset environment variables by unrolling modifications based on all workspaces in CMAKE_PREFIX_PATH'))
-    return lines
-
-
-def _rollback_env_variable(environ, name, subfolders):
-    """
-    For each catkin workspace in CMAKE_PREFIX_PATH remove the first entry from env[NAME] matching workspace + subfolder.
-
-    :param subfolders: list of str '' or subfoldername that may start with '/'
-    :returns: the updated value of the environment variable.
-    """
-    value = environ[name] if name in environ else ''
-    env_paths = [path for path in value.split(os.pathsep) if path]
-    value_modified = False
-    for subfolder in subfolders:
-        if subfolder:
-            if subfolder.startswith(os.path.sep) or (os.path.altsep and subfolder.startswith(os.path.altsep)):
-                subfolder = subfolder[1:]
-            if subfolder.endswith(os.path.sep) or (os.path.altsep and subfolder.endswith(os.path.altsep)):
-                subfolder = subfolder[:-1]
-        for ws_path in _get_workspaces(environ, include_fuerte=True, include_non_existing=True):
-            path_to_find = os.path.join(ws_path, subfolder) if subfolder else ws_path
-            path_to_remove = None
-            for env_path in env_paths:
-                env_path_clean = env_path[:-1] if env_path and env_path[-1] in [os.path.sep, os.path.altsep] else env_path
-                if env_path_clean == path_to_find:
-                    path_to_remove = env_path
-                    break
-            if path_to_remove:
-                env_paths.remove(path_to_remove)
-                value_modified = True
-    new_value = os.pathsep.join(env_paths)
-    return new_value if value_modified else None
-
-
-def _get_workspaces(environ, include_fuerte=False, include_non_existing=False):
-    """
-    Based on CMAKE_PREFIX_PATH return all catkin workspaces.
-
-    :param include_fuerte: The flag if paths starting with '/opt/ros/fuerte' should be considered workspaces, ``bool``
-    """
-    # get all cmake prefix paths
-    env_name = 'CMAKE_PREFIX_PATH'
-    value = environ[env_name] if env_name in environ else ''
-    paths = [path for path in value.split(os.pathsep) if path]
-    # remove non-workspace paths
-    workspaces = [path for path in paths if os.path.isfile(os.path.join(path, CATKIN_MARKER_FILE)) or (include_fuerte and path.startswith('/opt/ros/fuerte')) or (include_non_existing and not os.path.exists(path))]
-    return workspaces
 
 
 def prepend_env_variables(environ, env_var_subfolders, workspaces):
