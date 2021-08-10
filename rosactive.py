@@ -28,125 +28,145 @@ SETTINGS_FILE = "settings.yaml"
 INDEX_FILE = "index.yaml"
 
 
-def check_for_firsttime():
-    return not check_for_settings()
+class rosactive:
+    def __init__(self):
+        if self.check_for_firsttime():
+            self.init_file_structure()
+            sys.exit(0)
 
+        parsed = self.parse_args()
+        print(vars(parsed))
 
-def get_settings_path():
-    return join(expanduser("~"), ROSACTIVE_DIR, SETTINGS_FILE)
+    def check_for_firsttime(self):
+        return not self.check_for_settings()
 
+    def get_settings_path(self):
+        return join(expanduser("~"), ROSACTIVE_DIR, SETTINGS_FILE)
 
-def get_index_path():
-    return join(expanduser("~"), ROSACTIVE_DIR, SETTINGS_FILE)
+    def get_index_path(self):
+        return join(expanduser("~"), ROSACTIVE_DIR, SETTINGS_FILE)
 
+    def check_for_settings(self):
+        return exists(self.get_settings_path())
 
-def check_for_settings():
-    return exists(get_settings_path())
+    def check_for_index(self):
+        return exists(self.get_index_path())
 
+    def create_files(self):
+        if self.check_for_settings():
+            remove(self.get_settings_path())
+        if self.check_for_index():
+            remove(self.get_index_path())
+        open(self.get_settings_path(), "w+").write("")
+        open(self.get_index_path(), "w+").write("")
 
-def check_for_index():
-    return exists(get_index_path())
-
-
-def create_files():
-    if check_for_settings():
-        remove(get_settings_path())
-    if check_for_index():
-        remove(get_index_path())
-    open(get_settings_path(), "w+").write("")
-    open(get_index_path(), "w+").write("")
-
-
-def init_file_structure():
-    print(
-        "This appears to be your first time running Rosactive."
-        " First time setup will start now."
-    )
-    if "ROS_DISTRO" in environ.keys():
+    def init_file_structure(self):
         print(
-            "ERROR: You appear to have some ROS content still sourced "
-            "in your shell configuration. Please only use rosactive in "
-            "an environment where no ROS content has been sourced (so "
-            "that rosactive can do all the management)."
+            "This appears to be your first time running Rosactive."
+            " First time setup will start now."
         )
-        sys.exit()
+        if "ROS_DISTRO" in environ.keys():
+            print(
+                "ERROR: You appear to have some ROS content still sourced "
+                "in your shell configuration. Please only use rosactive in "
+                "an environment where no ROS content has been sourced (so "
+                "that rosactive can do all the management)."
+            )
+            sys.exit()
 
-    print("Doing initial file structure setup...", end="")
-    # create dir if it does not already exist
-    if not exists(join(expanduser("~"), ".rosactive")):
-        mkdir(join(expanduser("~"), ".rosactive"))
-    # create settings, index file if it does not already exist (also clear contents)
-    create_files()
-    print("Done!")
+        print("Doing initial file structure setup...", end="")
+        # create dir if it does not already exist
+        if not exists(join(expanduser("~"), ".rosactive")):
+            mkdir(join(expanduser("~"), ".rosactive"))
+        # create settings, index file if it does not already exist (also clear contents)
+        self.create_files()
+        print("Done!")
 
-    print("Going to search for indexable workspaces in your home directory.")
-    homedir = expanduser("~")
-    # max depth of 5 dir's into user directory to find CMakeLists
-    maxdepth = 5 + homedir.count(sep)
-    potential_workspaces = []
+        print("Going to search for indexable workspaces in your home directory.")
+        homedir = expanduser("~")
+        # max depth of 5 dir's into user directory to find CMakeLists
+        maxdepth = 5 + homedir.count(sep)
+        potential_workspaces = []
 
-    # walk through all directories in the user's home directory (up to maxdepth)
-    for root, _, files in walk(homedir):
-        if root.count(sep) < maxdepth:
-            for f in files:
-                # ignore hidden directories
-                if root.find(str(sep) + ".") > 0:
-                    continue
-                # found src/CMakeLists.txt: this could be a ROS workspace worth indexing.
-                if f == "CMakeLists.txt" and root.endswith("src"):
-                    potential_workspaces.append((root, f))
+        # walk through all directories in the user's home directory (up to maxdepth)
+        for root, _, files in walk(homedir):
+            if root.count(sep) < maxdepth:
+                for f in files:
+                    # ignore hidden directories
+                    if root.find(str(sep) + ".") > 0:
+                        continue
+                    # found src/CMakeLists.txt: this could be a ROS workspace worth indexing.
+                    if f == "CMakeLists.txt" and root.endswith("src"):
+                        potential_workspaces.append((root, f))
 
-    # now that we have some candidates, we can check if they're actual workspaces and not something else:
-    workspaces = []
-    for ws in potential_workspaces:
-        root, f = ws
-        f = open(join(root, f), "r")
-        # cmakelists.txt in a catkin workspace will end with 'catkin_workspace()', so we can search for that:
-        if "catkin_workspace" in f.read():
-            # cool, found one-- but we're in foo/bar/src/CMakeLists, we want to be tracking foo/bar.
-            spl = root.split(sep)
-            nosrc = sep.join(spl[:-1])
-            workspaces.append(nosrc)
+        # now that we have some candidates, we can check if they're actual workspaces and not something else:
+        workspaces = []
+        for ws in potential_workspaces:
+            root, f = ws
+            f = open(join(root, f), "r")
+            # cmakelists.txt in a catkin workspace will end with 'catkin_workspace()', so we can search for that:
+            if "catkin_workspace" in f.read():
+                # cool, found one-- but we're in foo/bar/src/CMakeLists, we want to be tracking foo/bar.
+                spl = root.split(sep)
+                nosrc = sep.join(spl[:-1])
+                workspaces.append(nosrc)
 
-    print(
-        "Indexing ROS workspaces."
-        "No files will be touched (all indexing takes place in ~/.rosactive)"
-    )
-    for ws in workspaces:
-        print(" - " + str(ws))
-        index(ws)
-    print("Initial setup all done! You can now create project configurations.")
+        print(
+            "Indexing ROS workspaces."
+            "No files will be touched (all indexing takes place in ~/.rosactive)"
+        )
+        for ws in workspaces:
+            print(" - " + str(ws))
+            self.index(ws)
+        print("Initial setup all done! You can now create project configurations.")
 
+    def index(self, string: str):
+        with open(join(expanduser("~"), ROSACTIVE_DIR, INDEX_FILE), "a") as f:
+            f.write(string + "\n")
 
-def index(string: str):
-    with open(join(expanduser("~"), ROSACTIVE_DIR, INDEX_FILE), "a") as f:
-        f.write(string + "\n")
-
-
-def main():
-    if check_for_firsttime():
-        init_file_structure()
-
-    arg_list = [
-            ("--activate",   "The specified workspace or configuration will be sourced in following terminal windows"           ),
-            ("--deactivate", "The specified workspace or configuration will no longer be sourced in following terminal windows" ),
-            ("--index",      "Index a new workspace so that Rosactive can auto-source it later." ),
-            ("--deindex",    "Remove workspace from Rosactive index (all folders/files will be left untouched)." ),
-            ("--display",    "Display the details of the current or specified configuration." ),
-            ("--genconfig",  "Create a new configuration to be activated/deactivated later." ),
-            ("--reconfig",   "Reconfigure an existing configuration." ),
-            ("--list",       "List available configurations." ),
-            ("--rm",         "Delete an existing configuration." ),
+    def parse_args(self) -> argparse.Namespace:
+        arg_list = [
+            (
+                "--activate",
+                "The specified workspace or configuration will be sourced in following terminal windows",
+            ),
+            (
+                "--deactivate",
+                "The specified workspace or configuration will no longer be sourced in following terminal windows",
+            ),
+            (
+                "--index",
+                "Index a new workspace so that Rosactive can auto-source it later.",
+            ),
+            (
+                "--deindex",
+                "Remove workspace from Rosactive index (all folders/files will be left untouched).",
+            ),
+            (
+                "--display",
+                "Display the details of the current or specified configuration.",
+            ),
+            (
+                "--genconfig",
+                "Create a new configuration to be activated/deactivated later.",
+            ),
+            ("--reconfig", "Reconfigure an existing configuration."),
+            ("--list", "List available configurations."),
+            ("--rm", "Delete an existing configuration."),
         ]
 
-    parser = argparse.ArgumentParser(usage="Manage currently sourced workspaces and environment variables.")
-    mutual_exclusive_args = parser.add_mutually_exclusive_group()
-    for arg in arg_list:
-        arg_name, arg_help = arg
-        mutual_exclusive_args.add_argument(arg_name, help=arg_help, action='store_true')
+        parser = argparse.ArgumentParser(
+            usage="Manage currently sourced workspaces and environment variables."
+        )
+        mutual_exclusive_args = parser.add_mutually_exclusive_group()
+        for arg in arg_list:
+            arg_name, arg_help = arg
+            mutual_exclusive_args.add_argument(
+                arg_name, help=arg_help, action="store_true"
+            )
 
-    parsed:argparse.Namespace = parser.parse_args()
-    print(vars(parsed))
+        return parser.parse_args()
+
 
 if __name__ == "__main__":
-    main()
+    rosactive()
