@@ -196,14 +196,18 @@ class rosactive:
                 "--" + arg_name, help=arg_help, action="store_true"
             )
 
+        parser.add_argument('argv', nargs='*')
+
         return parser.parse_args()
 
     def run_arg(self, parsed):
         arg_count = 0
         parsed = vars(parsed)
-        for (arg, _, _) in self.arg_list:
+        function = None
+        for (arg, _, func) in self.arg_list:
             if parsed[arg]:
                 arg_count += 1
+                function = func
 
         if arg_count < 1:
             print("Mode argument required: run argparse --help for usage information.")
@@ -211,6 +215,8 @@ class rosactive:
         if arg_count > 1:
             print("Too many mode arguments: specify only one at a time.")
             sys.exit(2)
+
+        function(parsed['argv'])
 
 
 if __name__ == "__main__":
