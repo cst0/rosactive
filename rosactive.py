@@ -23,28 +23,30 @@ import sys
 from os import mkdir, environ, walk, sep, remove
 from os.path import exists, join, expanduser
 
-ROSACTIVE_DIR = ".rosactive"
-SETTINGS_FILE = "settings.yaml"
-INDEX_FILE = "index.yaml"
-
 
 class rosactive:
     def __init__(self):
+        self.rosactive_dir = ".rosactive"
+        self.settings_file = "settings.yaml"
+        self.index_file = "index.yaml"
+        self.arg_list = []
+
         if self.check_for_firsttime():
             self.init_file_structure()
             sys.exit(0)
 
         parsed = self.parse_args()
+        self.run_arg(parsed)
         print(vars(parsed))
 
     def check_for_firsttime(self):
         return not self.check_for_settings()
 
     def get_settings_path(self):
-        return join(expanduser("~"), ROSACTIVE_DIR, SETTINGS_FILE)
+        return join(expanduser("~"), self.rosactive_dir, self.settings_file)
 
     def get_index_path(self):
-        return join(expanduser("~"), ROSACTIVE_DIR, SETTINGS_FILE)
+        return join(expanduser("~"), self.rosactive_dir, self.settings_file)
 
     def check_for_settings(self):
         return exists(self.get_settings_path())
@@ -121,51 +123,94 @@ class rosactive:
         print("Initial setup all done! You can now create project configurations.")
 
     def index(self, string: str):
-        with open(join(expanduser("~"), ROSACTIVE_DIR, INDEX_FILE), "a") as f:
+        with open(join(expanduser("~"), self.rosactive_dir, self.index_file), "a") as f:
             f.write(string + "\n")
 
+    def activate(self, ws):
+        pass
+
+    def deactivate(self, ws):
+        pass
+
+    def deindex(self, ws):
+        pass
+
+    def display(self, ws):
+        pass
+
+    def genconfig(self, ws):
+        pass
+
+    def reconfig(self, ws):
+        pass
+
+    def list(self, ws):
+        pass
+
+    def rm(self, ws):
+        pass
+
     def parse_args(self) -> argparse.Namespace:
-        arg_list = [
+        self.arg_list = [
             (
-                "--activate",
+                "activate",
                 "The specified workspace or configuration will be sourced in following terminal windows",
+                self.activate,
             ),
             (
-                "--deactivate",
+                "deactivate",
                 "The specified workspace or configuration will no longer be sourced in following terminal windows",
+                self.deactivate,
             ),
             (
-                "--index",
+                "index",
                 "Index a new workspace so that Rosactive can auto-source it later.",
+                self.index,
             ),
             (
-                "--deindex",
+                "deindex",
                 "Remove workspace from Rosactive index (all folders/files will be left untouched).",
+                self.deindex,
             ),
             (
-                "--display",
+                "display",
                 "Display the details of the current or specified configuration.",
+                self.display,
             ),
             (
-                "--genconfig",
+                "genconfig",
                 "Create a new configuration to be activated/deactivated later.",
+                self.genconfig,
             ),
-            ("--reconfig", "Reconfigure an existing configuration."),
-            ("--list", "List available configurations."),
-            ("--rm", "Delete an existing configuration."),
+            ("reconfig", "Reconfigure an existing configuration.", self.reconfig),
+            ("list", "List available configurations.", self.list),
+            ("rm", "Delete an existing configuration.", self.rm),
         ]
 
         parser = argparse.ArgumentParser(
             usage="Manage currently sourced workspaces and environment variables."
         )
         mutual_exclusive_args = parser.add_mutually_exclusive_group()
-        for arg in arg_list:
-            arg_name, arg_help = arg
+        for (arg_name, arg_help, _) in self.arg_list:
             mutual_exclusive_args.add_argument(
-                arg_name, help=arg_help, action="store_true"
+                "--" + arg_name, help=arg_help, action="store_true"
             )
 
         return parser.parse_args()
+
+    def run_arg(self, parsed):
+        arg_count = 0
+        parsed = vars(parsed)
+        for (arg, _, _) in self.arg_list:
+            if parsed[arg]:
+                arg_count += 1
+
+        if arg_count < 1:
+            print("Mode argument required: run argparse --help for usage information.")
+            sys.exit(1)
+        if arg_count > 1:
+            print("Too many mode arguments: specify only one at a time.")
+            sys.exit(2)
 
 
 if __name__ == "__main__":
