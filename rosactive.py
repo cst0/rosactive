@@ -127,18 +127,26 @@ def main():
     if check_for_firsttime():
         init_file_structure()
 
-    # parser = argparse.ArgumentParser(usage="Manage currently sourced workspaces and environment variables.")
-    # group = parser.add_mutually_exclusive_group(required=True)
-    # group.add_argument('--activate'   , action="store_true", help="The specified workspace or configuration will be sourced in following terminal windows")
-    # group.add_argument('--deactivate' , action="store_true", help="The specified workspace or configuration will no longer be sourced in following terminal windows")
-    # group.add_argument('--index'      , action="store_true", help="Make the rosactive local database aware of a ROS workspace")
-    # group.add_argument('--deindex'    , action="store_true", help="Make the rosactive local database no longer aware of a ROS workspace")
-    # group.add_argument('--current'    , action="store_true", help="Set the current workspace (will become the destination for roscd")
-    # group.add_argument('--clear'      , action="store_true", help="Deactivate all currently sourced workspaces or configurations")
-    # group.add_argument('--configure'  , action="store_true", help="Create collections of sourced content so they can all be sourced at once later")
-    # group.add_argument('--source'     , action="store_true", help="Source additional environment variables with each terminal")
-    # parsed = parser.parse_args()
+    arg_list = [
+            ("--activate",   "The specified workspace or configuration will be sourced in following terminal windows"           ),
+            ("--deactivate", "The specified workspace or configuration will no longer be sourced in following terminal windows" ),
+            ("--index",      "Index a new workspace so that Rosactive can auto-source it later." ),
+            ("--deindex",    "Remove workspace from Rosactive index (all folders/files will be left untouched)." ),
+            ("--display",    "Display the details of the current or specified configuration." ),
+            ("--genconfig",  "Create a new configuration to be activated/deactivated later." ),
+            ("--reconfig",   "Reconfigure an existing configuration." ),
+            ("--list",       "List available configurations." ),
+            ("--rm",         "Delete an existing configuration." ),
+        ]
 
+    parser = argparse.ArgumentParser(usage="Manage currently sourced workspaces and environment variables.")
+    mutual_exclusive_args = parser.add_mutually_exclusive_group()
+    for arg in arg_list:
+        arg_name, arg_help = arg
+        mutual_exclusive_args.add_argument(arg_name, help=arg_help, action='store_true')
+
+    parsed:argparse.Namespace = parser.parse_args()
+    print(vars(parsed))
 
 if __name__ == "__main__":
     main()
