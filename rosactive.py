@@ -21,7 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import sys
 from os import mkdir, environ, walk, sep, remove
-from os.path import exists, join, expanduser
+from os.path import abspath, exists, join, expanduser
+from typing import List
 
 
 class rosactive:
@@ -46,7 +47,7 @@ class rosactive:
         return join(expanduser("~"), self.rosactive_dir, self.settings_file)
 
     def get_index_path(self):
-        return join(expanduser("~"), self.rosactive_dir, self.settings_file)
+        return join(expanduser("~"), self.rosactive_dir, self.index_file)
 
     def check_for_settings(self):
         return exists(self.get_settings_path())
@@ -84,7 +85,12 @@ class rosactive:
         self.create_files()
         print("Done!")
 
+        self.autoindex([])
+        print("Initial setup all done! You can now create project configurations.")
+
+    def autoindex(self, args):
         print("Going to search for indexable workspaces in your home directory.")
+        print("No files will be touched (all indexing takes place in ~/.rosactive)")
         homedir = expanduser("~")
         # max depth of 5 dir's into user directory to find CMakeLists
         maxdepth = 5 + homedir.count(sep)
@@ -112,27 +118,34 @@ class rosactive:
                 spl = root.split(sep)
                 nosrc = sep.join(spl[:-1])
                 workspaces.append(nosrc)
-
-        print(
-            "Indexing ROS workspaces."
-            "No files will be touched (all indexing takes place in ~/.rosactive)"
-        )
         for ws in workspaces:
             print(" - " + str(ws))
             self.index(ws)
-        print("Initial setup all done! You can now create project configurations.")
 
     def index(self, string: str):
-        with open(join(expanduser("~"), self.rosactive_dir, self.index_file), "a") as f:
+        with open(self.get_index_path(), "a") as f:
             f.write(string + "\n")
 
-    def activate(self, ws):
-        pass
+    def deindex(self, ws_arr:List[str]):
+        removed_file = True
+        with open(self.get_index_path(), "r") as f:
+            keep_index = []
+            for line in f.readline():
+                if line == abspath(ws_arr[0]):
+                    removed_file = removed_file and True
+                else:
+                    keep_index.append(line)
+        with open(self.get_index_path(), "w") as f:
+            for line in keep_index:
+                f.write(line+'\n')
+
+        if not removed_file:
+            print("Couldn't find a workspace of that path to de-index.")
 
     def deactivate(self, ws):
         pass
 
-    def deindex(self, ws):
+    def activate(self, ws):
         pass
 
     def display(self, ws):
@@ -152,6 +165,11 @@ class rosactive:
 
     def parse_args(self) -> argparse.Namespace:
         self.arg_list = [
+            (
+                "autoindex",
+                "Automatically search for catkin workspaces",
+                self.autoindex,
+            ),
             (
                 "activate",
                 "The specified workspace or configuration will be sourced in following terminal windows",
@@ -196,7 +214,7 @@ class rosactive:
                 "--" + arg_name, help=arg_help, action="store_true"
             )
 
-        parser.add_argument('argv', nargs='*')
+        parser.add_argument('argv', nargs='?')
 
         return parser.parse_args()
 
@@ -216,7 +234,8 @@ class rosactive:
             print("Too many mode arguments: specify only one at a time.")
             sys.exit(2)
 
-        function(parsed['argv'])
+        argv = parsed['argv'] if 'argv' in parsed else []
+        function(argv)
 
 
 if __name__ == "__main__":
