@@ -1,8 +1,12 @@
 #!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 
+# Modified from the _setup_util.py by Chris Thierauf in 2021. Originally held
+# under copyright by Willow Garage, Inc, 2012, and released under the BSD
+# license. In keeping with that licensing, this file retains the
+# previously-listed copyright and licensing information below.
+
 # Software License Agreement (BSD License)
-#
 # Copyright (c) 2012, Willow Garage, Inc.
 # All rights reserved.
 #
@@ -38,7 +42,6 @@
 from __future__ import print_function
 
 import argparse
-import copy
 import errno
 import os
 import platform
@@ -54,7 +57,7 @@ PATH_TO_ADD_SUFFIX = ['bin']
 if IS_WINDOWS:
     # while catkin recommends putting dll's into bin, 3rd party packages often put dll's into lib
     # since Windows finds dll's via the PATH variable, prepend it with path to lib
-    PATH_TO_ADD_SUFFIX.extend([['lib', os.path.join('lib', 'x86_64-linux-gnu')]])
+    PATH_TO_ADD_SUFFIX.extend([['lib', os.path.join('lib', 'x86_64-linux-gnu')]])  # type: ignore
 
 # subfolder of workspace prepended to CMAKE_PREFIX_PATH
 ENV_VAR_SUBFOLDERS = {
@@ -64,74 +67,6 @@ ENV_VAR_SUBFOLDERS = {
     'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig'), os.path.join('lib', 'x86_64-linux-gnu', 'pkgconfig')],
     'PYTHONPATH': 'lib/python3/dist-packages',
 }
-
-
-def rollback_env_variables(environ, env_var_subfolders):
-    """
-    Generate shell code to reset environment variables.
-
-    by unrolling modifications based on all workspaces in CMAKE_PREFIX_PATH.
-    This does not cover modifications performed by environment hooks.
-    """
-    lines = []
-    unmodified_environ = copy.copy(environ)
-    for key in sorted(env_var_subfolders.keys()):
-        subfolders = env_var_subfolders[key]
-        if not isinstance(subfolders, list):
-            subfolders = [subfolders]
-        value = _rollback_env_variable(unmodified_environ, key, subfolders)
-        if value is not None:
-            environ[key] = value
-            lines.append(assignment(key, value))
-    if lines:
-        lines.insert(0, comment('reset environment variables by unrolling modifications based on all workspaces in CMAKE_PREFIX_PATH'))
-    return lines
-
-
-def _rollback_env_variable(environ, name, subfolders):
-    """
-    For each catkin workspace in CMAKE_PREFIX_PATH remove the first entry from env[NAME] matching workspace + subfolder.
-
-    :param subfolders: list of str '' or subfoldername that may start with '/'
-    :returns: the updated value of the environment variable.
-    """
-    value = environ[name] if name in environ else ''
-    env_paths = [path for path in value.split(os.pathsep) if path]
-    value_modified = False
-    for subfolder in subfolders:
-        if subfolder:
-            if subfolder.startswith(os.path.sep) or (os.path.altsep and subfolder.startswith(os.path.altsep)):
-                subfolder = subfolder[1:]
-            if subfolder.endswith(os.path.sep) or (os.path.altsep and subfolder.endswith(os.path.altsep)):
-                subfolder = subfolder[:-1]
-        for ws_path in _get_workspaces(environ, include_fuerte=True, include_non_existing=True):
-            path_to_find = os.path.join(ws_path, subfolder) if subfolder else ws_path
-            path_to_remove = None
-            for env_path in env_paths:
-                env_path_clean = env_path[:-1] if env_path and env_path[-1] in [os.path.sep, os.path.altsep] else env_path
-                if env_path_clean == path_to_find:
-                    path_to_remove = env_path
-                    break
-            if path_to_remove:
-                env_paths.remove(path_to_remove)
-                value_modified = True
-    new_value = os.pathsep.join(env_paths)
-    return new_value if value_modified else None
-
-
-def _get_workspaces(environ, include_fuerte=False, include_non_existing=False):
-    """
-    Based on CMAKE_PREFIX_PATH return all catkin workspaces.
-
-    :param include_fuerte: The flag if paths starting with '/opt/ros/fuerte' should be considered workspaces, ``bool``
-    """
-    # get all cmake prefix paths
-    env_name = 'CMAKE_PREFIX_PATH'
-    value = environ[env_name] if env_name in environ else ''
-    paths = [path for path in value.split(os.pathsep) if path]
-    # remove non-workspace paths
-    workspaces = [path for path in paths if os.path.isfile(os.path.join(path, CATKIN_MARKER_FILE)) or (include_fuerte and path.startswith('/opt/ros/fuerte')) or (include_non_existing and not os.path.exists(path))]
-    return workspaces
 
 
 def prepend_env_variables(environ, env_var_subfolders, workspaces):
@@ -251,27 +186,15 @@ def find_env_hooks(environ, cmake_prefix_path):
     return lines
 
 
-def _parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Generates code blocks for the setup.SHELL script.')
-    parser.add_argument('--extend', action='store_true', help='Skip unsetting previous environment variables to extend context')
-    parser.add_argument('--local', action='store_true', help='Only consider this prefix path and ignore other prefix path in the environment')
-    return parser.parse_known_args(args=args)[0]
-
-
 if __name__ == '__main__':
     try:
-        try:
-            args = _parse_arguments()
-        except Exception as e:
-            print(e, file=sys.stderr)
-            sys.exit(1)
+        parser = argparse.ArgumentParser()
+        parser.add_argument('workspaces', nargs='*')
+        args = parser.parse_args()
 
-        if not args.local:
-            # environment at generation time
-            CMAKE_PREFIX_PATH = r'/home/cst/ws_one/devel;/home/cst/ws_two/devel;/home/cst/ws_three/devel;/opt/ros/melodic'.split(';')
-        else:
-            # don't consider any other prefix path than this one
-            CMAKE_PREFIX_PATH = []
+        # environment at generation time
+        # CMAKE_PREFIX_PATH = r'/home/cst/ws_one/devel;/home/cst/ws_two/devel;/home/cst/ws_three/devel;/opt/ros/melodic'.split(';')
+        CMAKE_PREFIX_PATH = args.workspaces
         # prepend current workspace if not already part of CPP
         base_path = os.path.dirname(__file__)
         # CMAKE_PREFIX_PATH uses forward slash on all platforms, but __file__ is platform dependent
@@ -285,8 +208,6 @@ if __name__ == '__main__':
 
         environ = dict(os.environ)
         lines = []
-        if not args.extend:
-            lines += rollback_env_variables(environ, ENV_VAR_SUBFOLDERS)
         lines += prepend_env_variables(environ, ENV_VAR_SUBFOLDERS, CMAKE_PREFIX_PATH)
         lines += find_env_hooks(environ, CMAKE_PREFIX_PATH)
         print('\n'.join(lines))
